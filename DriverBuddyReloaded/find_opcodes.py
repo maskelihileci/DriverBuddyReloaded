@@ -39,6 +39,27 @@ from DriverBuddyReloaded.vulnerable_functions_lists.opcode import *
 # prone to false positives
 find_opcode_data = False
 
+def find_binary_alternative(start_ea, end_ea, bin_str, search_flags):
+    # Convert binary string to bytes
+    bin_bytes = bytes.fromhex(bin_str.replace(' ', ''))
+    
+    # Initialize the search start address
+    ea = start_ea
+    
+    # Iterate through the range and search for the byte pattern
+    while ea != ida_idaapi.BADADDR and ea < end_ea:
+        ea = ida_bytes.find_bytes(
+            range_start=ea, 
+            range_end=end_ea, 
+            bs=bin_bytes, 
+            flags=search_flags
+        )
+        if ea != ida_idaapi.BADADDR:
+            return ea
+        ea += 1  # Move to the next address
+    
+    return ida_idaapi.BADADDR
+
 
 def FindInstructions(instr, asm_where=None):
     """
@@ -86,10 +107,11 @@ def FindInstructions(instr, asm_where=None):
 
     # find all binary strings
     # print("[>] Searching for opcode {} - [{}]...".format(instr, bin_str))
-    ea = ida_ida.cvar.inf.min_ea
+    ea = ida_ida.inf_get_min_ea()  # Call the function to get the starting address
     ret = []
     while True:
-        ea = ida_search.find_binary(ea, ida_idaapi.BADADDR, bin_str, 16, ida_search.SEARCH_DOWN)
+        search_flags = ida_bytes.BIN_SEARCH_FORWARD | ida_bytes.BIN_SEARCH_NOSHOW  # Search direction flag
+        ea = find_binary_alternative(ea, ida_idaapi.BADADDR, bin_str, search_flags)
         if ea == ida_idaapi.BADADDR:
             break
         ret.append(ea)
